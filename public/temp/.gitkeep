@@ -1,0 +1,1 @@
+This file helps us keep empty folders(needed for our workspace to eg to keep temporary files) in our git working tree, else git will just ignore empty folders
