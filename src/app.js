@@ -22,4 +22,10 @@ app.use(express.static("public"))
 // to perform crud operations on cookies stored on client's browser as only server can read and remove client's cookies from their browser
 app.use(cookieParser())
 
+// import Routes
+import userRouter from "./routes/user.routes.js"
+
+// routes declaration
+app.use("/api/v1/users", userRouter)
+
 export { app }
