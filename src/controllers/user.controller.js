@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken"
 
 const registerUser = asyncHandler( async (req,res) => {
     // Steps:
@@ -140,7 +141,9 @@ const loginUser = asyncHandler(async (req,res) => {
                 new ApiResponse(
                     200,
                     {
-                        user: loggedInUser, accessToken, refreshToken
+                        user: loggedInUser, 
+                        accessToken, 
+                        refreshToken
                     },
                     "User logged in successfully"
                 )
@@ -173,5 +176,50 @@ const logoutUser = asyncHandler( async (req,res) => {
            )
 })
 
+// Genrate accessToken after it has expired by matching refreshToken sent by client and refreshToken stored on server.
+// KIM: refreshToken is used so that user don't have to login again and again after expiration of accessToken
+const refreshAccessToken = asyncHandler( async (req,res) => {
+    // if person is using mobile application, he may not have cookies thus we get token from req.body or req.header("Authorization")
+    const incomingRefreshToken = req.cookies.refreshAccessToken || req.body.refreshAccessToken
+
+    if (!incomingRefreshToken){
+        throw new ApiError(401, "Unauthorized request")
+    }
+    try {
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+    
+        const user = await User.findById(decodedToken?._id)
+        const storedRefreshToken = user.refresToken
+        if(!user){
+            throw new ApiError(401, "Invalid refresh token")
+        }
+        
+        if (incomingRefreshToken !== user?.refresToken){
+            throw new ApiError(401, "refresh token is expired or use")
+        }
+    
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+    
+        const { accessToken, newRefreshToken } = await generateAccessAndRefreshToken(user._id)
+    
+        return res.status(200)
+               .cookie("accessToken", accessToken, options)
+               .cookie("refreshToken", newRefreshToken, options)
+               .json(
+                new ApiResponse(
+                    200,
+                    {accessToken, refreshToken: newRefreshToken},
+                    "Access Token Refreshed Successfully"
+                )
+               )
+    
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid refresh token")
+    }
+})
+
 // if we are exporting like below 'export {register}', then we have to use '{}' during importing it in other files
-export { registerUser, loginUser, logoutUser }
+export { registerUser, loginUser, logoutUser, refreshAccessToken }
