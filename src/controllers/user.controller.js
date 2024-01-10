@@ -111,7 +111,7 @@ const loginUser = asyncHandler(async (req,res) => {
 
     // 4: password check
     // KIM: the methods which we wrote in User model are accessible via the retrieved "user" and not User Model "User"
-    const isPasswordValid = await user.isPasswordValid(password)
+    const isPasswordValid = await user.isPasswordCorrect(password)
     if (!isPasswordValid){
         throw new ApiError(401, "Invalid user credentials")
     }
