@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteOldUploadOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -290,7 +290,8 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-    const avatarLocalPath = req.files?.path;
+    
+    const avatarLocalPath = req.file?.path;
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is missing!");
@@ -300,6 +301,10 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     if (!avatar) {
         throw new ApiError(400, "Error while uploading avatar!");
     }
+
+    // delete old avatar file from cloudinary
+    const avatarOldCloudPath = req.user?.avatar
+    deleteOldUploadOnCloudinary(avatarOldCloudPath)
 
     const user = await User.findByIdAndUpdate(
         req.user?._id,
@@ -317,7 +322,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-    const coverImageLocalPath = req.files?.path;
+    const coverImageLocalPath = req.file?.path;
 
     if (!coverImageLocalPath) {
         throw new ApiError(400, "Cover image file is missing!");
@@ -327,6 +332,10 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     if (!coverImage) {
         throw new ApiError(400, "Error while uploading cover image!");
     }
+
+    // delete old cover image file from cloudinary
+    const coverImageOldCloudPath = req.user?.coverImage
+    deleteOldUploadOnCloudinary(coverImageOldCloudPath)
 
     const user = await User.findByIdAndUpdate(
         req.user?._id,
@@ -343,6 +352,10 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     )
 });
 
+const getUserChannelProfile = asyncHandler(async (req,res) => {
+
+})
+
 // if we are exporting like below 'export {register}', then we have to use '{}' during importing it in other files
 export {
     registerUser,
@@ -353,5 +366,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile
 };

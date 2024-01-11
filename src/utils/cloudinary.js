@@ -24,4 +24,25 @@ const uploadOnCloudinary = async (localFilePath) => {
     }
 }
 
-export {uploadOnCloudinary}
+// KIM: If we delete an asset from product environment, there may be cached copies of it on CDN, so it will still be accessible to users,
+// if we want to make sure it is not accessible from CDN, then we need invalidate CDN cache to true
+const deleteOldUploadOnCloudinary = async (oldFileCloudPath) => {
+    // get file publicId from path
+    const splitPathArr = ((oldFileCloudPath)+"").split("/")
+    const n = splitPathArr.length
+    const filePublicId = splitPathArr[n-1].split(".")[0]
+    
+    try {
+        const response =  await cloudinary.uploader.destroy(
+            filePublicId,
+            { invalidate: true }
+        )
+
+        return response
+
+    } catch (error) {
+        return null
+    }
+}
+
+export { uploadOnCloudinary, deleteOldUploadOnCloudinary}
