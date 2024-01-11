@@ -1,9 +1,13 @@
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
-import { deleteOldUploadOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+    deleteOldUploadOnCloudinary,
+    uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
     // Steps:
@@ -290,7 +294,6 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-    
     const avatarLocalPath = req.file?.path;
 
     if (!avatarLocalPath) {
@@ -303,8 +306,8 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
     // delete old avatar file from cloudinary
-    const avatarOldCloudPath = req.user?.avatar
-    deleteOldUploadOnCloudinary(avatarOldCloudPath)
+    const avatarOldCloudPath = req.user?.avatar;
+    deleteOldUploadOnCloudinary(avatarOldCloudPath);
 
     const user = await User.findByIdAndUpdate(
         req.user?._id,
@@ -316,9 +319,9 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         { new: true }
     ).select("-password");
 
-    return res.status(200).json(
-        new ApiResponse(200, user, "Avatar updated successfully!")
-    )
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "Avatar updated successfully!"));
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
@@ -334,8 +337,8 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     }
 
     // delete old cover image file from cloudinary
-    const coverImageOldCloudPath = req.user?.coverImage
-    deleteOldUploadOnCloudinary(coverImageOldCloudPath)
+    const coverImageOldCloudPath = req.user?.coverImage;
+    deleteOldUploadOnCloudinary(coverImageOldCloudPath);
 
     const user = await User.findByIdAndUpdate(
         req.user?._id,
@@ -347,14 +350,158 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         { new: true }
     ).select("-password");
 
-    return res.status(200).json(
-        new ApiResponse(200, user, "Cover image updated successfully!")
-    )
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "Cover image updated successfully!"));
 });
 
-const getUserChannelProfile = asyncHandler(async (req,res) => {
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    const { username } = req.params;
 
-})
+    if (!username?.trim()) {
+        throw new ApiError(400, "Username is missing!");
+    }
+
+    // aggregation returns an array[], here since we have filtered based on only one username, thus in aggregate returns a single
+    // object in array
+    const channel = await User.aggregate([
+        // we got matched user by username
+        {
+            $match: {
+                username: username?.toLowerCase(),
+            },
+        },
+        // we get subcribers from channels. We got user's subscribers through channel
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            },
+        },
+        // we get user's subscriptions from subscribers. We got how many we have subscribed through subscribers
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo",
+            },
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers",
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo",
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
+        },
+        // fields that we need to send in response
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+            },
+        },
+    ]);
+
+    if (!channel?.length) {
+        throw new ApiError(404, "Channel does not exist!");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                channel[0],
+                "User channel fetched successfully!"
+            )
+        );
+});
+
+// KIM: req.user._id gives us a string but it is not mongoDB's objectId, when we perform operations like 'User.findById', mongoose
+// automatically this id to mongoDB's objectId, but in aggregation pipelines are directly sent to MongoDB, thus we need to convert
+// this id to mongoDB's objectId by ourself.
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Schema.Types.ObjectId(req.user?._id),
+            },
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+
+                // we got all video documents now  to get user's detail from all these documents one by one
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+
+                            // we are inside video model, so local field is owner as we need owner's details from
+                            // "Users" model
+                            localField: "owner",
+                            // foreign field is corresponding field of owner in User model
+                            foreignField: "_id",
+                            as: "owner",
+
+                            // return only neccessary fields from User Model. returned fields will add into owner's fields
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    // after lookup we get an array i.e. [owner_object] and we need to get the 0th index object from the array,
+                    // so to simplify add another field as owner: object at 0th index of result array
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ]);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "Watch history fetched successfully!"
+            )
+        );
+});
 
 // if we are exporting like below 'export {register}', then we have to use '{}' during importing it in other files
 export {
@@ -367,5 +514,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory,
 };
