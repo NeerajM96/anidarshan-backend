@@ -176,8 +176,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined,
+            $unset: {
+                refreshToken: 1,  // this removes field from document
             },
         },
         {
@@ -440,10 +440,10 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 // automatically this id to mongoDB's objectId, but in aggregation pipelines are directly sent to MongoDB, thus we need to convert
 // this id to mongoDB's objectId by ourself.
 const getWatchHistory = asyncHandler(async (req, res) => {
-    const user = User.aggregate([
+    const user = await User.aggregate([
         {
             $match: {
-                _id: new mongoose.Schema.Types.ObjectId(req.user?._id),
+                _id: new mongoose.Types.ObjectId(req.user?._id),
             },
         },
         {
