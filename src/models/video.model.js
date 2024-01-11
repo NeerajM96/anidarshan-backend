@@ -41,6 +41,7 @@ const videoSchema = new Schema(
     }
 )
 
+// paginatoor gives us the ability to control pagination of videos eg. in one page from which vieo to which video we need to return
 videoSchema.plugin(mongooseAggregatePaginate)
 
 export const Video = mongoose.model("Video", videoSchema)
