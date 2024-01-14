@@ -201,7 +201,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 const refreshAccessToken = asyncHandler(async (req, res) => {
     // if person is using mobile application, he may not have cookies thus we get token from req.body or req.header("Authorization")
     const incomingRefreshToken =
-        req.cookies.refresToken || req.body.refresToken;
+        req.cookies.refreshToken || req.body.refreshToken;
 
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized request");
@@ -218,7 +218,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             throw new ApiError(401, "Invalid refresh token");
         }
 
-        if (incomingRefreshToken !== user?.refresToken) {
+        if (storedRefreshToken !== user?.refresToken) {
             throw new ApiError(401, "refresh token is expired or use");
         }
 
