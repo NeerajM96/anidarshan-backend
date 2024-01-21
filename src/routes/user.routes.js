@@ -48,7 +48,7 @@ router
     .route("/cover-image")
     .patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
 
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router.route("/c/:username").get(getUserChannelProfile);
 router.route("/history").get(verifyJWT, getWatchHistory);
 
 // by using 'export default' we can name this export whatever we want during importing it other files
