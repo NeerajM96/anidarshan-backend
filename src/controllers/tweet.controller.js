@@ -5,6 +5,7 @@ import { Tweet } from "../models/tweet.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 
+// TO DO: handle to prevent another user posting tweet on another account
 const createTweet = asyncHandler(async (req, res) => {
     const content = req.body.content;
     const owner = req.user._id;
@@ -30,7 +31,7 @@ const createTweet = asyncHandler(async (req, res) => {
 // TODO: I need to map likes and dislikes to this response
 const getUserTweets = asyncHandler(async (req, res) => {
     const { username } = req.params;
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username:username?.toLowerCase() });
     const userId = user._id;
 
     const tweets = await Tweet.aggregate([

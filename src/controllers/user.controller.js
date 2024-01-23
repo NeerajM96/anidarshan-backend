@@ -219,7 +219,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         }
 
         if (storedRefreshToken !== user?.refresToken) {
-            throw new ApiError(401, "refresh token is expired or use");
+            throw new ApiError(401, "refresh token is expired or used");
         }
 
         const options = {
