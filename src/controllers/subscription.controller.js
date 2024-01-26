@@ -38,6 +38,131 @@ const toggleSubscription = asyncHandler( async (req,res) => {
     return res.status(200).json(new ApiResponse(200, {subscription}, "Channel subscribed successfully!"))
 })
 
+// controller to return subscriber list of a channel
+const getUserChannelSubscribers = asyncHandler(async (req, res) => {
+    const {channelId} = req.params
 
+    const subscribers = await Subscription.aggregate([
+        {   
+            // filter all subscribers for channelId
+            $match:{
+                channel: new mongoose.Types.ObjectId(channelId)
+            }
+        },
+        {
+            $lookup:{
+                from:"users",
+                localField:"subscriber",
+                foreignField:"_id",
+                as:"subscribers",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"subscriptions",
+                            localField:"_id",
+                            foreignField:"channel",
+                            as:"channelsSuscribedByUsers"
+                        }
+                    },
+                    {
+                        $addFields:{
+                            subscribersCount:{
+                                $size:"$channelsSuscribedByUsers"
+                            },
+                            isSubscribed:{
+                                $cond:{
+                                    if:{$in: [req.user._id, "$channelsSuscribedByUsers.subscriber"]},
+                                    then:true,
+                                    else:false
+                                }
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        {
+            $unwind:"$subscribers"
+        },
+        {
+            $project:{
+                "subscribers.fullName":1,
+                "subscribers.avatar":1,
+                "subscribers.subscribersCount":1,
+                "subscribers.isSubscribed":1,
+            }
+        }
+    ])
+    // const sub = Subscription.find({channel:channelId})
+    if (!subscribers){
+        throw new ApiError(404, "Subscribers not found!")
+    }
+    
+    return res.status(200).json(new ApiResponse(200,subscribers,"Subscribers fetched successfully!"))
+})
 
-export {toggleSubscription}
+// controller to return channel list to which user has subscribed
+const getSubscribedChannels = asyncHandler(async (req, res) => {
+    const { subscriberId } = req.params
+    if(subscriberId.trim() === ""){
+        throw new ApiError(404, "SubscriberId required to fetch subscribers")
+    }
+    const user = await Subscription.aggregate([
+        {
+            $match:{
+                subscriber: new mongoose.Types.ObjectId(subscriberId)
+            }
+        },
+        {
+            $lookup:{
+                from:"users",
+                localField:"channel",
+                foreignField:"_id",
+                as:"subscribers",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"subscriptions",
+                            localField:"_id",
+                            foreignField:"channel",
+                            as:"channelsSuscribedByUsers"
+                        }
+                    },
+                    {
+                        $addFields:{
+                            subscribersCount:{
+                                $size:"$channelsSuscribedByUsers"
+                            },
+                            isSubscribed:{
+                                $cond: {
+                                    if:{$in: [subscriberId, "$channelsSuscribedByUsers.subscriber"]},
+                                    then:true,
+                                    else:false
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $unwind:"$subscribers"
+        },
+        {
+            $project:{
+                "subscribers.fullName":1,
+                "subscribers.avatar":1,
+                "subscribers.subscribersCount":1,
+                "subscribers.isSubscribed":1,
+            }
+        }
+    ])
+
+    if (!user){
+        throw new ApiError(500, "Something went wrong while fetching subscribers")
+    }
+
+    return res.status(200).json(new ApiResponse(200, user,"Subscribers fetched successfully"))
+})
+
+export {toggleSubscription,getUserChannelSubscribers, getSubscribedChannels}
