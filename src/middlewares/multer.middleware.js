@@ -1,4 +1,5 @@
 import multer from "multer";
+import { validateFileType } from "../validators/file.validator.js";
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -10,4 +11,14 @@ const storage = multer.diskStorage({
     },
 });
 
-export const upload = multer({ storage });
+const limits = {
+    fileSize: process.env.MAX_VIDEO_SIZE
+}
+
+export const upload = multer({ 
+        storage, 
+        limits, 
+        fileFilter:  (req,file,cb) =>{
+            validateFileType(file,cb)
+        } 
+});

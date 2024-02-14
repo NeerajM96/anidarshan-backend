@@ -53,7 +53,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const avatar = await uploadOnCloudinary(avatarLocalPath);
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
     if (!avatar) {
-        throw new ApiError(400, "Avatar file is required");
+        throw new ApiError(400, "Error while uploading avatar!");
     }
 
     // 6: create user object - create entry in DB
@@ -93,13 +93,11 @@ const generateAccessAndRefreshToken = async (userId) => {
         const user = await User.findById(userId);
         const accessToken = user.generateAccessToken();
         const refreshToken = user.generateRefreshToken();
-
         user.refreshToken = refreshToken;
         // save refresh token to db
         // while saving mongoose's models kicks in and it will ask for all required fields of user model eg. password, so to
         // prevent it from happening, set validateBeforeSave to false.
         await user.save({ validateBeforeSave: false });
-
         return { accessToken, refreshToken };
     } catch (error) {
         throw new ApiError(
@@ -227,9 +225,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: true,
         };
 
-        const { accessToken, newRefreshToken } =
+        const { accessToken, refreshToken:newRefreshToken } =
             await generateAccessAndRefreshToken(user._id);
-
         return res
             .status(200)
             .cookie("accessToken", accessToken, options)
