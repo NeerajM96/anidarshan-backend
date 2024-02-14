@@ -5,6 +5,64 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
+const getAllVideos = asyncHandler(async (req, res) => {
+    // //TODO: get all videos based on query, sort, pagination
+    // const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+
+    // const {userId} = req.body
+    // if(!userId){
+    //     const video = await Video.find({})
+    // }
+    // else{
+    //     const video = await Video.findById(userId)
+    // }
+
+    // if(!video){
+    //     throw new ApiError(400, "Error while fetching videos!")
+    // }
+    const video = await Video.aggregate([
+        {
+            $match:{}
+        },
+        {
+            $lookup:{
+                from:"users",
+                localField:"owner",
+                foreignField:"_id",
+                as:"owner"
+            }
+        },
+        {
+            $unwind:"$owner"
+        },
+        {
+            $addFields:{
+                fullName:"$owner.fullName",
+                avatar:"$owner.avatar",
+            }
+        },
+        {
+            $project:{
+                videoFile:1,
+                thumbnail:1,
+                title:1,
+                description:1,
+                duration:1,
+                views:1,
+                fullName:1,
+                avatar:1,
+                createdAt:1,
+            }
+        }
+    ])
+    if(!video){
+        throw new ApiError(400, "Error while fetching videos!")
+    }
+
+    return res.json(new ApiResponse(200, video, "Successfully fetched video"))
+
+}) 
+
 const publishAVideo = asyncHandler(async (req, res) => {
     // steps
     // 1. Get details from frontend
@@ -141,4 +199,4 @@ const getVideoById = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200,videoData,"User fetched successfully!"))
 })
 
-export  {getVideoById, publishAVideo}
+export  {getVideoById, publishAVideo, getAllVideos}
