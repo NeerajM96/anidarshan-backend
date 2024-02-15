@@ -4,57 +4,67 @@ import { ApiError } from "../utils/ApiError.js";
 import {ApiResponse} from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { User } from "../models/user.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     // //TODO: get all videos based on query, sort, pagination
     // const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
 
-    // const {userId} = req.body
-    // if(!userId){
-    //     const video = await Video.find({})
-    // }
-    // else{
-    //     const video = await Video.findById(userId)
-    // }
+    const { userId, username } = req.query
+    const pipeline = []
+    let user;
+    if(username){
+        user = await User.findOne({username})
+    }
 
-    // if(!video){
-    //     throw new ApiError(400, "Error while fetching videos!")
-    // }
-    const video = await Video.aggregate([
-        {
-            $match:{}
-        },
-        {
-            $lookup:{
-                from:"users",
-                localField:"owner",
-                foreignField:"_id",
-                as:"owner"
+    if(user){
+        pipeline.push({
+            $match: {
+                owner:new mongoose.Types.ObjectId(user._id)
             }
-        },
-        {
-            $unwind:"$owner"
-        },
-        {
-            $addFields:{
-                fullName:"$owner.fullName",
-                avatar:"$owner.avatar",
+        })
+    }
+    else{
+        pipeline.push(
+            {
+                $match:{}
             }
-        },
-        {
-            $project:{
-                videoFile:1,
-                thumbnail:1,
-                title:1,
-                description:1,
-                duration:1,
-                views:1,
-                fullName:1,
-                avatar:1,
-                createdAt:1,
-            }
+        )
+    }
+
+    pipeline.push({
+        $lookup:{
+            from:"users",
+            localField:"owner",
+            foreignField:"_id",
+            as:"owner"
         }
-    ])
+    },
+    {
+        $unwind:"$owner"
+    },
+    {
+        $addFields:{
+            fullName:"$owner.fullName",
+            avatar:"$owner.avatar",
+        }
+    },
+    {
+        $project:{
+            videoFile:1,
+            thumbnail:1,
+            title:1,
+            description:1,
+            duration:1,
+            views:1,
+            fullName:1,
+            avatar:1,
+            createdAt:1,
+            isPublished:1,
+        }
+    })
+
+    const video = await Video.aggregate(pipeline)
     if(!video){
         throw new ApiError(400, "Error while fetching videos!")
     }
@@ -196,7 +206,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     // Aggregation querry to add required field eg channel icon and name
     
 
-    return res.status(200).json(new ApiResponse(200,videoData,"User fetched successfully!"))
+    return res.status(200).json(new ApiResponse(200,videoData,"Video fetched successfully!"))
 })
 
 export  {getVideoById, publishAVideo, getAllVideos}
