@@ -3,7 +3,7 @@ import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import {ApiResponse} from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteOldUploadOnCloudinary, deleteVideoUploadOnCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -209,4 +209,70 @@ const getVideoById = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200,videoData,"Video fetched successfully!"))
 })
 
-export  {getVideoById, publishAVideo, getAllVideos}
+const updateVideo = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+    const { title, description} = req.body
+    let updateFields = {};
+    //TODO: update video details like title, description, thumbnail
+
+    // // check for thumbnail and video
+    // const thumbnailLocalPath = req?.files.thumbnail[0]?.path
+    // let newthumbnail;
+    // if(thumbnailLocalPath){
+    //     newthumbnail = await uploadOnCloudinary(thumbnailLocalPath)
+    //     if(!newthumbnail){
+    //         throw new ApiError(400, "Error while uploading thumbnail!")
+    //     }
+    //     updateFields.thumbnail = newthumbnail.secure_url
+    // }
+    
+    if(description){
+        updateFields.description = description
+    }
+    if(title){
+        updateFields.title = title
+    }
+    if(!updateFields){
+        throw new ApiError(400, "Atleast one field is required")
+    }
+
+    // 4: upload thumbnail to cloudinary, check if avatar uploaded to cloudinary
+    // const newthumbnail = await uploadOnCloudinary(thumbnailLocalPath)
+    
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        { $set: updateFields },
+        )
+
+    if(!video){
+        throw new ApiError(400, "Something went wrong while updating")
+    }
+
+    return res.json(new ApiResponse(200,{},"Fields updated successfully!"))
+})
+
+const deleteVideo = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+    //TODO: delete video
+    // const video = await Video.findByIdAndDelete(videoId)
+    const video = await Video.findByIdAndDelete(videoId)
+    if(!video){
+        throw new ApiError(400, "Error while deleting video!")
+    }
+    const thumbnail = video.thumbnail
+    const videoFile = video.videoFile
+    deleteOldUploadOnCloudinary(thumbnail)
+    
+    // deleting video file from cloud is not working
+    deleteOldUploadOnCloudinary(videoFile)
+    // // code is breaking due to below
+    // deleteVideoUploadOnCloudinary(videoFile)
+
+    return res.json(new ApiResponse(200, {},"Deleted video successfully"))
+})
+
+const togglePublishStatus = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+})
+
+export  {getVideoById, publishAVideo, getAllVideos, updateVideo, deleteVideo }

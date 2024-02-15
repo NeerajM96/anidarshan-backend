@@ -45,4 +45,26 @@ const deleteOldUploadOnCloudinary = async (oldFileCloudPath) => {
     }
 }
 
-export { uploadOnCloudinary, deleteOldUploadOnCloudinary}
+// code is breaking due to below, write a bug free code to delete videos from cloudinary, as with below code i am only
+// able to delete video 1 time, for second delete the node app is breaking
+const deleteVideoUploadOnCloudinary = async (oldFileCloudPath) => {
+    // get file publicId from path
+    const splitPathArr = ((oldFileCloudPath)+"").split("/")
+    const n = splitPathArr.length
+    const filePublicId = splitPathArr[n-1].split(".")[0]
+    
+    try {
+        const response =  await cloudinary.uploader.destroy(
+            filePublicId,
+            {resource_type: 'video'},
+            { invalidate: true }
+        )
+
+        return response
+
+    } catch (error) {
+        return null
+    }
+}
+
+export { uploadOnCloudinary, deleteOldUploadOnCloudinary, deleteVideoUploadOnCloudinary }
