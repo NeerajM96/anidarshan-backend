@@ -55,12 +55,12 @@ const registerUser = asyncHandler(async (req, res) => {
     if (!avatar) {
         throw new ApiError(400, "Error while uploading avatar!");
     }
-
+    
     // 6: create user object - create entry in DB
     const user = await User.create({
         fullName,
-        avatar: avatar.url,
-        coverImage: coverImage?.url || "",
+        avatar: avatar.secure_url,
+        coverImage: coverImage?.secure_url || "",
         email,
         password,
         username: username.toLowerCase(),
@@ -310,7 +310,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         req.user?._id,
         {
             $set: {
-                avatar: avatar.url,
+                avatar: avatar.secure_url,
             },
         },
         { new: true }
@@ -341,7 +341,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         req.user?._id,
         {
             $set: {
-                coverImage: coverImage.url,
+                coverImage: coverImage.secure_url,
             },
         },
         { new: true }

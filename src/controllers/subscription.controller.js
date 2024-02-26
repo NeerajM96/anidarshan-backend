@@ -101,43 +101,110 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200,subscribers,"Subscribers fetched successfully!"))
 })
 
-// controller to return channel list to which user has subscribed
+// // controller to return channel list to which user has subscribed
+// const getSubscribedChannels = asyncHandler(async (req, res) => {
+//     const { subscriberId } = req.params
+//     const username = req.query.username
+//     if(subscriberId.trim() === ""){
+//         throw new ApiError(404, "SubscriberId required to fetch subscribers")
+//     }
+//     const user = await Subscription.aggregate([
+//         {
+//             $match:{
+//                 subscriber: new mongoose.Types.ObjectId(subscriberId)
+//             }
+//         },
+//         {
+//             $lookup:{
+//                 from:"users",
+//                 localField:"channel",
+//                 foreignField:"_id",
+//                 as:"subscribers",
+//                 pipeline:[
+//                     {
+//                         $lookup:{
+//                             from:"subscriptions",
+//                             localField:"_id",
+//                             foreignField:"channel",
+//                             as:"channelsSuscribedByUsers"
+//                         }
+//                     },
+//                     {
+//                         $addFields:{
+//                             subscribersCount:{
+//                                 $size:"$channelsSuscribedByUsers"
+//                             },
+//                             isSubscribed:{
+//                                 $cond: {
+//                                     if:{$in: [subscriberId, "$channelsSuscribedByUsers.subscriber"]},
+//                                     then:true,
+//                                     else:false
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 ]
+//             }
+//         },
+//         {
+//             $unwind:"$subscribers"
+//         },
+//         {
+//             $project:{
+//                 "subscribers.fullName":1,
+//                 "subscribers.avatar":1,
+//                 "subscribers.subscribersCount":1,
+//                 "subscribers.isSubscribed":1,
+//             }
+//         }
+//     ])
+
+//     if (!user){
+//         throw new ApiError(500, "Something went wrong while fetching subscribers")
+//     }
+
+//     return res.status(200).json(new ApiResponse(200, user,"Subscribers fetched successfully"))
+// })
+
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-    const { subscriberId } = req.params
-    if(subscriberId.trim() === ""){
-        throw new ApiError(404, "SubscriberId required to fetch subscribers")
+    const { subscriberId } = req.params;
+    const fullName = req.query.fullName;
+
+    if (subscriberId.trim() === "") {
+        throw new ApiError(404, "SubscriberId required to fetch subscribers");
     }
-    const user = await Subscription.aggregate([
+
+    const pipeline = [
         {
-            $match:{
+            $match: {
                 subscriber: new mongoose.Types.ObjectId(subscriberId)
             }
         },
         {
-            $lookup:{
-                from:"users",
-                localField:"channel",
-                foreignField:"_id",
-                as:"subscribers",
-                pipeline:[
+            $lookup: {
+                from: "users",
+                localField: "channel",
+                foreignField: "_id",
+                as: "subscribers",
+                pipeline: [
                     {
-                        $lookup:{
-                            from:"subscriptions",
-                            localField:"_id",
-                            foreignField:"channel",
-                            as:"channelsSuscribedByUsers"
+                        $lookup: {
+                            from: "subscriptions",
+                            localField: "_id",
+                            foreignField: "channel",
+                            as: "channelsSuscribedByUsers"
                         }
                     },
                     {
-                        $addFields:{
-                            subscribersCount:{
-                                $size:"$channelsSuscribedByUsers"
+                        $addFields: {
+                            subscribersCount: {
+                                $size: "$channelsSuscribedByUsers"
                             },
-                            isSubscribed:{
+                            isSubscribed: {
                                 $cond: {
-                                    if:{$in: [subscriberId, "$channelsSuscribedByUsers.subscriber"]},
-                                    then:true,
-                                    else:false
+                                    if: { $in: [subscriberId, "$channelsSuscribedByUsers.subscriber"] },
+                                    then: true,
+                                    else: false
                                 }
                             }
                         }
@@ -146,23 +213,36 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
             }
         },
         {
-            $unwind:"$subscribers"
+            $unwind: "$subscribers"
         },
         {
-            $project:{
-                "subscribers.fullName":1,
-                "subscribers.avatar":1,
-                "subscribers.subscribersCount":1,
-                "subscribers.isSubscribed":1,
+            $project: {
+                "subscribers.fullName": 1,
+                "subscribers.avatar": 1,
+                "subscribers.subscribersCount": 1,
+                "subscribers.isSubscribed": 1,
             }
         }
-    ])
+    ];
 
-    if (!user){
-        throw new ApiError(500, "Something went wrong while fetching subscribers")
+    if (fullName) {
+        pipeline.push({
+            $match: {
+                "subscribers.fullName": {
+                    $regex: new RegExp(fullName, "i") // Case-insensitive regex match
+                }
+            }
+        });
     }
 
-    return res.status(200).json(new ApiResponse(200, user,"Subscribers fetched successfully"))
-})
+    const user = await Subscription.aggregate(pipeline);
+
+    if (!user) {
+        throw new ApiError(500, "Something went wrong while fetching subscribers");
+    }
+
+    return res.status(200).json(new ApiResponse(200, user, "Subscribers fetched successfully"));
+});
+
 
 export {toggleSubscription,getUserChannelSubscribers, getSubscribedChannels}
